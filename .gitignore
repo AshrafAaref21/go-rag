@@ -1,0 +1,23 @@
+.env
+.env.*
+!.env.example
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.coverprofile
+coverage.out
+
+# Common local build dirs
+bin/
+build/
+dist/
+
+# OS/editor noise
+.DS_Store
+.idea/
