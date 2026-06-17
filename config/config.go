@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -11,6 +12,8 @@ type Config struct {
 	APIKey           string
 	Model            string
 	SystemPromptFile string
+	DatabaseURL      string
+	EmbeddingDim     int
 }
 
 func Load() Config {
@@ -20,6 +23,8 @@ func Load() Config {
 		APIKey:           os.Getenv("OPENAI_API_KEY"),
 		Model:            os.Getenv("OPENAI_MODEL"),
 		SystemPromptFile: os.Getenv("SYSTEM_PROMPT_FILE"),
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		EmbeddingDim:     atoiOr(os.Getenv("EMBEDDING_DIM"), 768), // OpenAI's text-embedding-3-small vector dimension
 	}
 
 	if cfg.BaseURL == "" {
@@ -31,4 +36,15 @@ func Load() Config {
 	}
 
 	return cfg
+}
+
+func atoiOr(s string, fallback int) int {
+	if s == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
