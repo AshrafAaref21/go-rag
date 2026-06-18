@@ -14,6 +14,8 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+var _ Embedder = (*Client)(nil)
+
 type Client struct {
 	cfg config.Config
 	sdk openai.Client
