@@ -21,17 +21,25 @@ type Client struct {
 	sdk openai.Client
 }
 
-func New(cfg config.Config) *Client {
+func newClient(cfg config.Config, baseURL, apiKey string) *Client {
 	opts := []option.RequestOption{}
 
-	if cfg.BaseURL != "" {
-		opts = append(opts, option.WithBaseURL(cfg.BaseURL))
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(baseURL))
 	}
-	if cfg.APIKey != "" {
-		opts = append(opts, option.WithAPIKey(cfg.APIKey))
+	if apiKey != "" {
+		opts = append(opts, option.WithAPIKey(apiKey))
 	}
 
 	return &Client{cfg: cfg, sdk: openai.NewClient(opts...)}
+}
+
+func New(cfg config.Config) *Client {
+	return newClient(cfg, cfg.BaseURL, cfg.APIKey)
+}
+
+func NewEmbedder(cfg config.Config) *Client {
+	return newClient(cfg, cfg.EmbeddingBaseURL, cfg.EmbeddingAPIKey)
 }
 
 func (c *Client) ChatStream(ctx context.Context, messages []Message, onDelta func(string)) (Message, error) {
