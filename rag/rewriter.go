@@ -12,7 +12,7 @@ const rewriteSystemPrompt = `You rewrite the user's latest message into a standa
 
 Given the conversation, output a single search query that:
 - Captures the topic and intent of the latest user message.
-- Resolves pronouns and refences using prior turns ("it", "they", "that one").
+- Resolves pronouns and references using prior turns ("it", "they", "that one").
 - Stays concise - keywords and short phrases, not full sentences.
 
 If the latest user message already stands on its own with no references to prior turns, output it verbatim.

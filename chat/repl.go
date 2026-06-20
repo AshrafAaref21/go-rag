@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"github.com/AshrafAaref21/go-rag/llm"
+	"github.com/AshrafAaref21/go-rag/rag"
 )
 
 type Options struct {
 	SystemPromptFile string
 }
 
-func RunREPL(ctx context.Context, client *llm.Client, opts Options) error {
+func RunREPL(ctx context.Context, client *llm.Client, retriever *rag.Retriever, opts Options) error {
 	in := bufio.NewScanner(os.Stdin)
 	in.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
@@ -49,10 +50,20 @@ func RunREPL(ctx context.Context, client *llm.Client, opts Options) error {
 		}
 
 		history = append(history, llm.Message{Role: "user", Content: input})
+		turn := history
+		if retriever != nil {
+			contextText, retErr := retriever.Retrieve(ctx, history)
+			if retErr != nil {
+				fmt.Fprintln(os.Stderr, "retrieval error: ", retErr)
+			} else if contextText != "" {
+				// build a turn with the inline context
+				turn = withInlineContext(history, contextText)
+			}
+		}
 
 		spin := startSpinner("thinking")
 		var stopOnce sync.Once
-		reply, err := client.ChatStream(ctx, history, func(s string) {
+		reply, err := client.ChatStream(ctx, turn, func(s string) {
 			stopOnce.Do(spin.Stop)
 			fmt.Print(s)
 		})
@@ -62,6 +73,9 @@ func RunREPL(ctx context.Context, client *llm.Client, opts Options) error {
 
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error: ", err)
+			// Roll back the user message so a retry doesn't
+			// double-post it and so the failed turn doesn't pollute
+			// future context.
 			history = history[:len(history)-1]
 			continue
 		}
@@ -70,12 +84,35 @@ func RunREPL(ctx context.Context, client *llm.Client, opts Options) error {
 	}
 }
 
+func withInlineContext(history []llm.Message, contextText string) []llm.Message {
+	if len(history) == 0 || contextText == "" {
+		return history
+	}
+	last := history[len(history)-1]
+	if last.Role != "user" {
+		return history
+	}
+
+	out := make([]llm.Message, len(history))
+	copy(out, history)
+	out[len(out)-1] = llm.Message{
+		Role:    "user",
+		Content: contextText + "\n\n--- Question ---\n\n" + last.Content,
+	}
+	return out
+}
+
+// spinner renders a single-line animation on stdout until Stop is
+// called. It clears the line on stop so subsequent output starts at
+// column zero. Stop is safe to call multiple times and from multiple
+// goroutines; only the first call has any effect.
 type spinner struct {
 	stop chan struct{}
 	done chan struct{}
 	once sync.Once
 }
 
+// startSpinner starts the spinner
 func startSpinner(label string) *spinner {
 	s := &spinner{stop: make(chan struct{}), done: make(chan struct{})}
 	go func() {
@@ -99,6 +136,7 @@ func startSpinner(label string) *spinner {
 	return s
 }
 
+// Stop stops the spinner.
 func (s *spinner) Stop() {
 	s.once.Do(func() { close(s.stop) })
 	<-s.done
